@@ -1,0 +1,63 @@
+name: Build
+
+on:
+  workflow_dispatch:
+
+permissions: write-all
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Free Disk Space
+        uses: FirelightFlagboy/gh-runner-free-disk-space@main
+      - name: Set up build environment
+        run: sudo bash -c 'bash <(curl -s https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+      - name: Clone code
+        run: git clone -b main --single-branch --filter=blob:none https://github.com/VIKINGYFY/immortalwrt
+      - name: Update feeds
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+        working-directory: ./immortalwrt
+      - name: Patch source code
+        run: bash ../patch.sh
+        working-directory: ./immortalwrt
+      - name: Make configuration
+        run: |
+          cat ../er1.config > .config
+          make defconfig
+          cat .config
+        working-directory: ./immortalwrt
+      - name: Download sources
+        run: make download -j$(nproc) V=s
+        working-directory: ./immortalwrt
+      - name: Build firmware
+        run: make -j$(nproc) V=w
+        working-directory: ./immortalwrt
+      - name: Get build info
+        id: env
+        run: |
+          ls -la immortalwrt/bin/targets/*/*
+          echo "CURRENT_DATE=$(date -u '+%y%m%d%H%M')" >> $GITHUB_OUTPUT
+          echo "VERSION=$(cat immortalwrt/bin/targets/*/*/version.buildinfo)" >> $GITHUB_OUTPUT
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: |
+            immortalwrt/bin/targets/**/config.buildinfo
+            immortalwrt/bin/targets/**/*.manifest
+            immortalwrt/bin/targets/**/*-factory.bin
+            immortalwrt/bin/targets/**/*-sysupgrade.bin
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.env.outputs.VERSION }}
+          tag_name: ${{ steps.env.outputs.VERSION }}-${{ steps.env.outputs.CURRENT_DATE }}
+          files: |
+            immortalwrt/bin/targets/**/config.buildinfo
+            immortalwrt/bin/targets/**/*.manifest
+            immortalwrt/bin/targets/**/*-factory.bin
+            immortalwrt/bin/targets/**/*-sysupgrade.bin
