@@ -19,6 +19,7 @@ jobs:
         run: git clone -b main --single-branch --filter=blob:none https://github.com/VIKINGYFY/immortalwrt
       - name: Update feeds
         run: |
+          cat ../feeds.conf.more >> feeds.conf.default
           ./scripts/feeds update -a
           ./scripts/feeds install -a
         working-directory: ./immortalwrt
