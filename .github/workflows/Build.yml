@@ -8,6 +8,11 @@ permissions: write-all
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [er1, ax6]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -28,7 +33,8 @@ jobs:
         working-directory: ./immortalwrt
       - name: Make configuration
         run: |
-          cat ../er1.config > .config
+          cat ../common.config > .config
+          cat ../${{ matrix.device }}.config >> .config
           make defconfig
           cat .config
         working-directory: ./immortalwrt
@@ -38,27 +44,37 @@ jobs:
       - name: Build firmware
         run: make -j$(nproc) V=w
         working-directory: ./immortalwrt
-      - name: Get build info
-        id: env
+      - name: Prepare artifacts
         run: |
           ls -la immortalwrt/bin/targets/*/*
-          echo "CURRENT_DATE=$(date -u '+%y%m%d%H%M')" >> $GITHUB_OUTPUT
-          echo "VERSION=$(cat immortalwrt/bin/targets/*/*/version.buildinfo)" >> $GITHUB_OUTPUT
+          mkdir -p ./out/
+          cp immortalwrt/bin/targets/*/*/*.bin immortalwrt/bin/targets/*/*/*.ubi immortalwrt/bin/targets/*/*/*.itb ./out/
+          cp immortalwrt/bin/targets/*/*/config.buildinfo ./out/${{ matrix.device }}.config.buildinfo
+          cp immortalwrt/bin/targets/*/*/*.manifest ./out/${{ matrix.device }}.manifest
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          path: |
-            immortalwrt/bin/targets/**/config.buildinfo
-            immortalwrt/bin/targets/**/*.manifest
-            immortalwrt/bin/targets/**/*-factory.bin
-            immortalwrt/bin/targets/**/*-sysupgrade.bin
-      - name: Upload to Release
+          name: firmware-${{ matrix.device }}
+          path: ./out/*
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./release-files
+          merge-multiple: true
+      - name: Generate Tag & Name
+        id: vars
+        run: |
+          echo "TAG=$(date -u '+%Y.%m.%d-%H%M')" >> $GITHUB_OUTPUT
+          echo "CURRENT_DATE=$(date -u '+%y%m%d%H%M')" >> $GITHUB_OUTPUT
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          name: ${{ steps.env.outputs.VERSION }}
-          tag_name: ${{ steps.env.outputs.VERSION }}-${{ steps.env.outputs.CURRENT_DATE }}
+          name: "ImmortalWrt Build - ${{ steps.vars.outputs.CURRENT_DATE }}"
+          tag_name: ${{ steps.vars.outputs.TAG }}
           files: |
-            immortalwrt/bin/targets/**/config.buildinfo
-            immortalwrt/bin/targets/**/*.manifest
-            immortalwrt/bin/targets/**/*-factory.bin
-            immortalwrt/bin/targets/**/*-sysupgrade.bin
+            ./release-files/*
