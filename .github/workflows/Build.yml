@@ -48,7 +48,9 @@ jobs:
         run: |
           ls -la immortalwrt/bin/targets/*/*
           mkdir -p ./out/
-          cp immortalwrt/bin/targets/*/*/*.bin immortalwrt/bin/targets/*/*/*.ubi immortalwrt/bin/targets/*/*/*.itb ./out/
+          cp immortalwrt/bin/targets/*/*/*.bin ./out/ || true
+          cp immortalwrt/bin/targets/*/*/*.ubi ./out/ || true
+          cp immortalwrt/bin/targets/*/*/*.itb ./out/ || true
           cp immortalwrt/bin/targets/*/*/config.buildinfo ./out/${{ matrix.device }}.config.buildinfo
           cp immortalwrt/bin/targets/*/*/*.manifest ./out/${{ matrix.device }}.manifest
       - name: Upload firmware artifact
