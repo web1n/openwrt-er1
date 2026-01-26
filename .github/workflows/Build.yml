@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        device: [er1, ax6]
+        target: [ipq60xx, ipq807x]
 
     steps:
       - name: Checkout
@@ -34,7 +34,7 @@ jobs:
       - name: Make configuration
         run: |
           cat ../common.config > .config
-          cat ../${{ matrix.device }}.config >> .config
+          cat ../${{ matrix.target }}.config >> .config
           make defconfig
           cat .config
         working-directory: ./immortalwrt
@@ -48,15 +48,13 @@ jobs:
         run: |
           ls -la immortalwrt/bin/targets/*/*
           mkdir -p ./out/
-          cp immortalwrt/bin/targets/*/*/*.bin ./out/ || true
-          cp immortalwrt/bin/targets/*/*/*.ubi ./out/ || true
-          cp immortalwrt/bin/targets/*/*/*.itb ./out/ || true
-          cp immortalwrt/bin/targets/*/*/config.buildinfo ./out/${{ matrix.device }}.config.buildinfo
-          cp immortalwrt/bin/targets/*/*/*.manifest ./out/${{ matrix.device }}.manifest
+          cp immortalwrt/bin/targets/*/*/*.{bin,img,itb,ubi} ./out/ 2>/dev/null || true
+          cp immortalwrt/bin/targets/*/*/config.buildinfo ./out/${{ matrix.target }}.config.buildinfo
+          cp immortalwrt/bin/targets/*/*/*.manifest ./out/
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-${{ matrix.device }}
+          name: firmware-${{ matrix.target }}
           path: ./out/*
 
   release:
