@@ -2,6 +2,8 @@ name: Build
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 19 * * 5' # 03:00 CST/Beijing every Saturday
 
 permissions: write-all
 
